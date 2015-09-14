@@ -85,6 +85,15 @@ L.ImageOverlay = L.Layer.extend({
 		return this;
 	},
 
+	setBounds: function (bounds) {
+		this._bounds = bounds;
+
+		if (this._map) {
+			this._reset();
+		}
+		return this;
+	},
+
 	getAttribution: function () {
 		return this.options.attribution;
 	},

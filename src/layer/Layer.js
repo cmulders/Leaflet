@@ -36,10 +36,6 @@ L.Layer = L.Evented.extend({
 		return this;
 	},
 
-	isPopupOpen: function() {
-		return this._popup.isOpen();
-	},
-
 	_layerAdd: function (e) {
 		var map = e.target;
 
@@ -49,14 +45,14 @@ L.Layer = L.Evented.extend({
 		this._map = map;
 		this._zoomAnimated = map._zoomAnimated;
 
+		if (this.getEvents) {
+			map.on(this.getEvents(), this);
+		}
+
 		this.onAdd(map);
 
 		if (this.getAttribution && this._map.attributionControl) {
 			this._map.attributionControl.addAttribution(this.getAttribution());
-		}
-
-		if (this.getEvents) {
-			map.on(this.getEvents(), this);
 		}
 
 		this.fire('add');

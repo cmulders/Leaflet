@@ -16,7 +16,8 @@ L.Map = L.Evented.extend({
 		fadeAnimation: true,
 		trackResize: true,
 		markerZoomAnimation: true,
-		maxBoundsViscosity: 0.0
+		maxBoundsViscosity: 0.0,
+		transform3DLimit: 9999990
 	},
 
 	initialize: function (id, options) { // (HTMLElement or String, Object)
@@ -611,17 +612,29 @@ L.Map = L.Evented.extend({
 		if (this.options.trackResize) {
 			L.DomEvent[onOff](window, 'resize', this._onResize, this);
 		}
+
+		this[onOff]('moveend', this._onMoveEnd);
 	},
 
 	_onResize: function () {
 		L.Util.cancelAnimFrame(this._resizeRequest);
 		this._resizeRequest = L.Util.requestAnimFrame(
-		        function () { this.invalidateSize({debounceMoveend: true}); }, this, false, this._container);
+		        function () { this.invalidateSize({debounceMoveend: true}); }, this);
 	},
 
 	_onScroll: function () {
 		this._container.scrollTop  = 0;
 		this._container.scrollLeft = 0;
+	},
+
+	_onMoveEnd: function () {
+		if (L.Browser.any3d && this.options.transform3DLimit &&
+			(Math.abs(this._mapPane._leaflet_pos.x) >= this.options.transform3DLimit
+			 || Math.abs(this._mapPane._leaflet_pos.y) >= this.options.transform3DLimit)) {
+			// https://bugzilla.mozilla.org/show_bug.cgi?id=1203873 but Webkit also have
+			// a pixel offset on very high values, see: http://jsfiddle.net/dg6r5hhb/
+			this._resetView(this.getCenter(), this.getZoom());
+		}
 	},
 
 	_findEventTargets: function (src, type, bubble) {
@@ -630,8 +643,8 @@ L.Map = L.Evented.extend({
 			target = this._targets[L.stamp(src)];
 			if (target && target.listens(type, true)) {
 				targets.push(target);
-				if (!bubble) { break; }
 			}
+			if (!bubble) { break; }
 			if (src === this._container) {
 				break;
 			}
@@ -663,10 +676,6 @@ L.Map = L.Evented.extend({
 
 	_fireDOMEvent: function (e, type, targets) {
 
-		if (type === 'contextmenu') {
-			L.DomEvent.preventDefault(e);
-		}
-
 		var isHover = type === 'mouseover' || type === 'mouseout';
 		targets = (targets || []).concat(this._findEventTargets(e.target || e.srcElement, type, !isHover));
 
@@ -675,6 +684,9 @@ L.Map = L.Evented.extend({
 
 			// special case for map mouseover/mouseout events so that they're actually mouseenter/mouseleave
 			if (isHover && !L.DomEvent._checkMouse(this._container, e)) { return; }
+		} else if (type === 'contextmenu') {
+			// we only want to call preventDefault when targets listen to it.
+			L.DomEvent.preventDefault(e);
 		}
 
 		var target = targets[0];
