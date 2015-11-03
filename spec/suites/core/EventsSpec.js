@@ -380,6 +380,26 @@ describe('Events', function () {
 
 			expect(spy.called).to.be(true);
 		});
+
+		it('removes event listeners after first trigger, even if the handler fires the same event', function () {
+			var obj = new L.Evented(),
+			    spy = sinon.spy(),
+			    foo = {};
+
+			obj.on('test', spy, foo);
+
+			var total = 0;
+			obj.once('test', function (e) {
+				// Prevent infinite loop in test
+				if (++total < 10) {
+					e.target.fire('test');
+				}
+			}, foo);
+
+			obj.fire('test');
+
+			expect(spy.callCount).to.be(2);
+		});
 	});
 
 	describe('addEventParent && removeEventParent', function () {
