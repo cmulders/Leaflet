@@ -174,6 +174,29 @@ L.Evented = L.Class.extend({
 		return false;
 	},
 
+	_hasListner: function (type, fn, context) {
+		var events = this._events,
+		    contextId = context && context !== this && L.stamp(context),
+		    listeners, i, len;
+
+		if (contextId) {
+			var indexKey = type + '_idx',
+			    id = L.stamp(fn) + '_' + contextId;
+
+			if (events[indexKey] && events[indexKey][id]) {
+				return true;
+			}
+		}
+		listeners = events[type] || [];
+
+		for (i = 0, len = listeners.length; i < len; i++) {
+			if (listeners[i].fn === fn) {
+				return true;
+			}
+		}
+		return false;
+	},
+
 	once: function (types, fn, context) {
 
 		if (typeof types === 'object') {
@@ -183,16 +206,18 @@ L.Evented = L.Class.extend({
 			return this;
 		}
 
-		var handler = L.bind(function () {
-			this
-			    .off(types, fn, context)
-			    .off(types, handler, context);
+		var handler = L.bind(function (event) {
+			this.off(types, handler, context);
+			if (this._hasListner(types, fn, context)) {
+				this.off(types, fn, context);
+				fn.call(context, event);
+			}
 		}, this);
 
 		// add a listener that's executed once and removed after that
 		return this
-		    .on(types, fn, context)
-		    .on(types, handler, context);
+		    .on(types, handler, context)
+		    .on(types, fn, context);
 	},
 
 	// adds a parent to propagate events to (when you fire with true as a 3rd argument)
